@@ -1,13 +1,15 @@
 const express = require("express");
 const cors = require("cors");
-
+const dotenv = require("dotenv");
 const routes = require("./src/route");
 const { connectionDatabase } = require("./src/config/database");
 
 const app = express();
 
-const hostname = "localhost";
-const port = 8081;
+dotenv.config();
+
+const hostname = process.env.HOST || "localhost";
+const port = process.env.PORT || 8081;
 
 // Middleware: Enable CORS for specified origin
 let corsOptions = {
