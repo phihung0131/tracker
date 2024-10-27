@@ -2,6 +2,7 @@ const File = require("../model/fileModel");
 const Piece = require("../model/pieceModel");
 const Node = require("../model/nodeModel");
 const TorrentParser = require("../utils/Torrent");
+const createPiecesInBackground = require("../utils/createPiecesInBackground");
 
 const createFile = async (req, res) => {
   try {
@@ -9,9 +10,7 @@ const createFile = async (req, res) => {
     const torrentFile = req.file;
 
     if (!torrentFile) {
-      return res
-        .status(400)
-        .json({ message: "Không có file torrent được tải lên" });
+      return res.status(400).json({ message: "Không có file torrent được tải lên" });
     }
 
     // Lưu file torrent vào cơ sở dữ liệu dưới dạng Buffer
@@ -32,34 +31,14 @@ const createFile = async (req, res) => {
       node = await Node.create({ ip, port });
     }
 
-    // Tạo các document Piece
-    const pieces = [];
-    for (let i = 0; i < allInfo.pieces; i++) {
-      const piece = await Piece.create({
-        file_id: file._id,
-        piece_index: i,
-        nodes: [node._id],
-      });
-      pieces.push(piece);
-    }
+    // Bắt đầu quá trình tạo piece trong nền
+    createPiecesInBackground(file._id, allInfo.pieces, node._id);
 
     const { __v, _id, ...rest } = file._doc;
-
-    console.log(
-      "IP: ",
-      ip,
-      "Port: ",
-      port,
-      "File: ",
-      file.name,
-      "Pieces: ",
-      pieces.length
-    );
-
     return res.status(200).json({
       ...rest,
-      // torrentInfo: allInfo,
-      pieces: pieces.map((p) => ({ _id: p._id, piece_index: p.piece_index })),
+      torrentInfo: allInfo,
+      message: "File đã được tạo. Các piece đang được xử lý trong nền."
     });
   } catch (error) {
     console.error(error);

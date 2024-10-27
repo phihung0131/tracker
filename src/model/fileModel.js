@@ -16,6 +16,12 @@ const FileSchema = new mongoose.Schema({
     type: Buffer,
     required: [true, "Torrent file là bắt buộc"],
   },
+
+  status: {
+    type: String,
+    enum: ['processing', 'completed', 'error'],
+    default: 'processing'
+  }
 });
 
 const File = mongoose.model("File", FileSchema);
