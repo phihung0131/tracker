@@ -13,6 +13,8 @@ const createFile = async (req, res) => {
       return res.status(400).json({ message: "Không có file torrent được tải lên" });
     }
 
+    console.log("Kích thước file torrent:", torrentFile.buffer.length, "bytes");
+
     // Lưu file torrent vào cơ sở dữ liệu dưới dạng Buffer
     const file = await File.create({
       name,
@@ -38,6 +40,7 @@ const createFile = async (req, res) => {
     return res.status(200).json({
       ...rest,
       torrentInfo: allInfo,
+      torrentFileSize: torrentFile.buffer.length,
       message: "File đã được tạo. Các piece đang được xử lý trong nền."
     });
   } catch (error) {
@@ -47,17 +50,60 @@ const createFile = async (req, res) => {
 };
 
 const getPeers = async (req, res) => {
-  const { magnet_text } = req.body;
-  const file = await File.findOne({ magnet_text });
-  if (!file) {
-    return res.status(404).json({ message: "File not found" });
-  }
-  const pieces = await Piece.find({ file_id: file._id })
-    .select("piece_index nodes -_id")
-    .populate("nodes", "ip port -_id");
+  try {
+    const { magnet_text } = req.body;
+    const file = await File.findOne({ magnet_text });
+    if (!file) {
+      return res.status(404).json({ message: "File not found" });
+    }
 
-  console.log("Get peers: ", pieces.length, "File: ", file.name);
-  return res.status(200).json(pieces);
+    const pieces = await Piece.find({ file_id: file._id })
+      .select("piece_index nodes -_id")
+      .populate("nodes", "ip port -_id");
+
+    // Tạo danh sách peer từ các piece
+    const peers = pieces.reduce((acc, piece) => {
+      piece.nodes.forEach(node => {
+        if (!acc.some(peer => peer.ip === node.ip && peer.port === node.port)) {
+          acc.push({ ip: node.ip, port: node.port });
+        }
+      });
+      return acc;
+    }, []);
+
+    console.log("Kích thước file torrent từ database:", file.torrent_file.length, "bytes");
+
+    // Trả về file torrent, thông tin torrent, các piece và danh sách peer
+    console.log("Get peers: ", peers.length, "File: ", file.name);
+    return res.status(200).json({
+      name: file.name,
+      magnet_text: file.magnet_text,
+      status: file.status,
+      torrentFileSize: file.torrent_file.length,
+      torrentFile: file.torrent_file.toString('base64'), // Trả về file torrent dưới dạng base64
+      pieces: pieces,
+      // peers: peers
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: error.message });
+  }
 };
 
-module.exports = { createFile, getPeers };
+const downloadTorrent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const file = await File.findById(id);
+    if (!file) {
+      return res.status(404).json({ message: "File not found" });
+    }
+    res.set('Content-Type', 'application/x-bittorrent');
+    res.set('Content-Disposition', `attachment; filename="${file.name}.torrent"`);
+    res.send(file.torrent_file);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { createFile, getPeers, downloadTorrent };

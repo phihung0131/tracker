@@ -1,6 +1,6 @@
 const express = require("express");
 const multer = require("multer");
-const { createFile, getPeers } = require("../controller/fileController"); 
+const { createFile, getPeers, downloadTorrent } = require("../controller/fileController");
 const router = express.Router();
 
 // Cấu hình Multer
@@ -19,6 +19,6 @@ router.put("/api/files/peers", (req, res) => {
   res.send("Hello World");
 });
 
-
+router.get("/api/files/:id/download", downloadTorrent);
 
 module.exports = router;
