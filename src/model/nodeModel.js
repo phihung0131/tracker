@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const NodeSchema = new mongoose.Schema({
   ip: {
     type: String,
-    required: [true, "Cart ID là bắt buộc"],
+    required: [true, "ID là bắt buộc"],
   },
 
   port: {
